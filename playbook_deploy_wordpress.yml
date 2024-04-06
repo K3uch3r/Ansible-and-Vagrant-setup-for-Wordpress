@@ -1,0 +1,134 @@
+---
+- name: Script deployment Wordpress
+  hosts:linux-client
+  become: true
+  tasks:
+    - name: Download httpd
+      ansible.builtin.yum:
+        name:  httpd
+        state: latest
+    
+    - name: Download dependence
+      ansible.builtin.yum:
+        name:
+          - php
+          - mod_ssl
+          - php-mysqli 
+          - php-fileinfo
+          - php-gd
+          - php-mbstring
+          - php-session
+          - php-zlib
+          - php-simplexml
+          - php-openssl
+          - php-xmlrpc
+          - php-mysqlnd
+          - php-dom
+          - php-simplexml
+          - php-xml 
+          - php-intl
+          - php-xmlreader
+          - php-curl
+          - php-exif
+          - php-ftp
+          - php-gd
+          - php-iconv
+          - php-json
+          - php-mbstring
+          - php-posix
+          - php-sockets
+          - php-tokenizer
+        state: latest
+
+    - name: Activate httpd
+      ansible.builtin.systemd_service:
+        name: httpd
+        state: started
+        enabled: true
+    
+    - name: Download python3
+      ansible.builtin.yum:
+        name:  python3
+        state: latest
+
+    - name: Installing Mysql and dependencies
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - mysql-server
+        - libaio
+        - python3-PyMySQL
+    
+    - name: Activate mysql
+      ansible.builtin.systemd_service:
+        name: mysqld
+        state: started
+        enabled: true
+
+#    - name: ouverture de flux (firewall)
+#      ansible.posix.firewalld:
+#         port: 80/tcp
+#         permanent: true
+#         state: enabled
+#         immediate: true
+
+    - name: creating mysql user
+      community.mysql.mysql_user:
+         name: "wp_user"
+         password: "Password"
+         priv: '*.*:ALL'
+         host: '%'
+         state: present
+
+    - name: Create a new database wordpress
+      community.mysql.mysql_db:
+         name: "wordpress"
+         state: present
+      notify: restart mysql
+
+    - name: Install tar and zip
+      ansible.builtin.yum:
+         name:
+           - tar
+           - zip
+         state: present
+
+    - name: Install Wordpress
+      ansible.builtin.unarchive:
+         src: https://wordpress.org/latest.tar.gz
+         dest: /var/www/html/
+         remote_src: yes
+
+    - name: Copy sample config file
+      command: mv /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php
+
+    - name: Update Wordpress config file
+      ansible.builtin.lineinfile:
+         path: /var/www/html/wordpress/wp-config.php
+         regexp: "{{item.regexp}}"
+         line: "{{item.line}}"
+      with_items:
+         - {'regexp': "define\\( 'DB_NAME', '(.)+' \\);", 'line': "define( 'DB_NAME', 'wordpress' );"}
+         - {'regexp': "define\\( 'DB_USER', '(.)+' \\);", 'line': "define( 'DB_USER', 'wp_user' );"}
+         - {'regexp': "define\\( 'DB_PASSWORD', '(.)+' \\);", 'line': "define( 'DB_PASSWORD', 'Password' );"}
+
+    - name: Owner apache
+      ansible.builtin.file:
+         path: /var/www/html/wordpress
+         state: directory
+         recurse: yes
+         owner: apache
+         group: apache
+
+    - name: Set httpd_sys_rw_content_t on wordpress
+      community.general.sefcontext:
+         target: '/var/www/html/wordpress(/.*)?'
+         setype: httpd_sys_rw_content_t
+         state: present
+
+  handlers:
+    - name: restart mysql
+      service:
+         name: mysqld
+         state: restarted

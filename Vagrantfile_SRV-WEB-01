@@ -1,0 +1,18 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "almalinux/8"
+  config.vm.network "public_network", bridged:["Intel(R) Dual Band Wireless-AC 8260 #2"]
+  config.vm.hostname = "SRV-WEB-01"
+  config.vm.provider "virtualbox" do |web|
+    web.cpus = 1
+    web.memory = 1048
+    web.name = "SRV-WEB-01"
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo adduser osadmin
+    sudo usermod -aG wheel osadmin
+    sudo usermod --password $(echo Password | openssl passwd -6 -stdin) osadmin
+    sudo -u osadmin mkdir /home/osadmin/.ssh
+    sudo -u osadmin echo "" > /home/osadmin/.ssh/authorized_keys
+    sudo chown osadmin:osadmin /home/osadmin/.ssh/authorized_keys
+SHELL
+end

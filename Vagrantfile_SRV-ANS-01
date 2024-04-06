@@ -1,0 +1,20 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "almalinux/8"
+  config.vm.network "public_network", bridged:["Intel(R) Dual Band Wireless-AC 8260 #2"]
+  config.vm.hostname = "SRV-ANS-01"
+  config.vm.provider "virtualbox" do |srv|
+    srv.cpus = 1
+    srv.memory = 1048
+    srv.name = "SRV-ANS-01"
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo yum update -y
+    sudo yum install epel-release ansible-core -y
+    sudo yum install ansible -y
+    sudo adduser osadmin
+    sudo usermod -aG wheel osadmin
+    sudo usermod --password $(echo Password | openssl passwd -6 -stdin) osadmin
+    sudo -u osadmin mkdir /home/osadmin/.ssh
+    sudo -u osadmin ssh-keygen -b 2048 -t rsa -f /home/osadmin/.ssh/id_rsa -q -N ""
+SHELL
+end
