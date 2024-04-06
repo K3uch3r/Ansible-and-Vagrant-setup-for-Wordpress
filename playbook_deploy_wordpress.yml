@@ -1,6 +1,6 @@
 ---
 - name: Script deployment Wordpress
-  hosts:linux-client
+  hosts: linux-client
   become: true
   tasks:
     - name: Download httpd
